@@ -13,7 +13,30 @@ def main():
     print(f"[CLIENT] Received: {data.decode()}")
 
     while True:
-      pass
+        print("\nOptions:")
+        print("1. Broadcast a message")
+        print("2. Get GPS location from server")
+        print("3. Quit")
+        choice = input("Enter your choice (1/2/3): ").strip()
+
+        if choice == "1":
+            msg = input("Enter message to broadcast: ")
+            json_packet = json.dumps({"broadcast": msg})
+            client_socket.sendall(json_packet.encode())
+            data = client_socket.recv(1024)
+            if data:
+                print(f"[SERVER] {data.decode()}")
+        elif choice == "2":
+            json_packet = json.dumps({"get_gps": None})
+            client_socket.sendall(json_packet.encode())
+            data = client_socket.recv(1024)
+            if data:
+                print(f"[SERVER] {data.decode()}")
+        elif choice == "3":
+            print("Exiting...")
+            break
+        else:
+            print("Invalid choice. Please select 1, 2, or 3.")
 
     client_socket.close()
 
