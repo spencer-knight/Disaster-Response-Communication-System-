@@ -2,12 +2,19 @@ import socket
 import threading
 import random
 import json
+import math
 
 HOST = 'localhost'
 PORT = 5000
+RANGE = 100
 
 clients = {}  
 clients_lock = threading.Lock()
+
+def distance(gps1, gps2):
+   x1, y1 = gps1
+   x2, y2 = gps2
+   return math.sqrt((x2 - x1)**2 + (y2-y1)**2)
 
 def process_packet(conn, addr, data):
   #print(data)
@@ -22,10 +29,13 @@ def process_packet(conn, addr, data):
       responsePacket["data"] = packet["data"]
       responsePacket["cmd"] = "serverBroadcast"
       with clients_lock:
-          for addr_c,client in clients.items():
-            if addr_c != addr:
+        gps = clients[addr]["gps"]
+        for addr_c,client in clients.items():
+          if addr_c != addr:
+            print(distance(gps, client["gps"]))
+            if distance(gps, client["gps"]) < RANGE:
               client["connection"].sendall(json.dumps(responsePacket).encode())
-              
+            
   if packet.get("cmd") == "clientGPS":
     responsePacket["cmd"] = "serverGPS"
     with clients_lock:
@@ -38,8 +48,8 @@ def generate_random_coordinates():
     return (lat, lon)
 
 def handle_client(conn, addr):
-    print(f"[NEW CONNECTION] {addr} connected.")
     gps = generate_random_coordinates()
+    print(f"[NEW CONNECTION] {addr} connected. {gps}")
     
     with clients_lock:
         clients[addr] = {
@@ -60,7 +70,6 @@ def handle_client(conn, addr):
                 clients[addr]['messages'].append(message)
             
             process_packet(conn, addr, data)
-            #conn.sendall(json.dumps({"serverBroadcast": "test"}).encode())
 
     with clients_lock:
         print(f"[DISCONNECTED] {addr} removed.")
