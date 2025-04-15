@@ -8,16 +8,17 @@ PORT = 5000
 
 def process_packet(data):
     packet = json.loads(data.decode())
-    if 'send_gps' in packet:
-        print(f"Your current gps is {packet['send_gps']}.")
-    elif 'broadcast' in packet:
-        print(f"[BROADCAST] {packet['broadcast']}")
+    if packet.get("cmd") == "serverGPS":
+        print(f"Your current gps is {packet['data']}.")
+    elif packet.get("cmd") == "serverBroadcast":
+        print(f"[BROADCAST] {packet['data']}")
     else:
         print(f"Invalid packet.")
+        print(packet.dumps())
 
 def listen_for_messages(client_socket):
     while True:
-        client_socket.settimeout(1.0)
+        #client_socket.settimeout(1.0)
         data = client_socket.recv(1024)
         if data:
             process_packet(data)
@@ -25,11 +26,6 @@ def listen_for_messages(client_socket):
 def main():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((HOST, PORT))
-
-    client_socket.sendall(b"Hello from client node!")
-    data = client_socket.recv(1024)
-
-    print(f"[CLIENT] Received: {data.decode()}")
 
     receiver_thread = threading.Thread(target=listen_for_messages, args=(client_socket,), daemon=True)
     receiver_thread.start()
@@ -43,10 +39,10 @@ def main():
 
         if choice == "1":
             msg = input("Enter message to broadcast: ")
-            json_packet = json.dumps({"broadcast": msg})
+            json_packet = json.dumps({"cmd" : "clientBroadcast", "data" : msg})
             client_socket.sendall(json_packet.encode())
         elif choice == "2":
-            json_packet = json.dumps({"get_gps": None})
+            json_packet = json.dumps({"cmd" : "clientGPS", "data" : None})
             client_socket.sendall(json_packet.encode())
         elif choice == "3":
             print("Exiting...")

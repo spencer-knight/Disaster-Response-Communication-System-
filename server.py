@@ -1,6 +1,7 @@
 import socket
 import threading
 import random
+import json
 
 HOST = 'localhost'
 PORT = 5000
@@ -8,9 +9,32 @@ PORT = 5000
 clients = {}  
 clients_lock = threading.Lock()
 
+def process_packet(conn, addr, data):
+  print(data)
+  packet = json.loads(data);
+  responsePacket = {
+      "cmd" : None,
+      "data" : None
+  }
+  #json.dumps({"cmd" : None, "data" : None})
+  if packet.get("cmd") == "clientBroadcast":
+      #do broadcasting logic here, just responding for now
+      packet["data"] = packet["data"] + " received by server."
+      packet["cmd"] = "serverBroadcast"
+      conn.sendall(json.dumps(packet).encode())
+  if packet.get("cmd") == "clientGPS":
+    responsePacket["cmd"] = "serverGPS"
+    with clients_lock:
+      responsePacket["data"] = clients[addr]["gps"]
+    conn.sendall(json.dumps(responsePacket).encode())
+    
+    
+  #conn.sendall(json.dumps({"cmd" : "serverBroadcast", "data" : "lah dee doo dah day"}).encode())
+
+
 def generate_random_coordinates():
-    lat = round(random.uniform(-90, 90), 6)
-    lon = round(random.uniform(-180, 180), 6)
+    lat = round(random.uniform(-100, 100), 6)
+    lon = round(random.uniform(-100, 100), 6)
     return (lat, lon)
 
 def handle_client(conn, addr):
@@ -35,7 +59,8 @@ def handle_client(conn, addr):
             with clients_lock:
                 clients[addr]['messages'].append(message)
             
-            conn.sendall(b"Acknowledged")
+            process_packet(conn, addr, data)
+            #conn.sendall(json.dumps({"serverBroadcast": "test"}).encode())
 
     with clients_lock:
         print(f"[DISCONNECTED] {addr} removed.")
