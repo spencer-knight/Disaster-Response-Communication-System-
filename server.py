@@ -10,7 +10,7 @@ clients = {}
 clients_lock = threading.Lock()
 
 def process_packet(conn, addr, data):
-  print(data)
+  #print(data)
   packet = json.loads(data);
   responsePacket = {
       "cmd" : None,
@@ -19,18 +19,18 @@ def process_packet(conn, addr, data):
   #json.dumps({"cmd" : None, "data" : None})
   if packet.get("cmd") == "clientBroadcast":
       #do broadcasting logic here, just responding for now
-      packet["data"] = packet["data"] + " received by server."
-      packet["cmd"] = "serverBroadcast"
-      conn.sendall(json.dumps(packet).encode())
+      responsePacket["data"] = packet["data"]
+      responsePacket["cmd"] = "serverBroadcast"
+      with clients_lock:
+          for addr_c,client in clients.items():
+            if addr_c != addr:
+              client["connection"].sendall(json.dumps(responsePacket).encode())
+              
   if packet.get("cmd") == "clientGPS":
     responsePacket["cmd"] = "serverGPS"
     with clients_lock:
       responsePacket["data"] = clients[addr]["gps"]
     conn.sendall(json.dumps(responsePacket).encode())
-    
-    
-  #conn.sendall(json.dumps({"cmd" : "serverBroadcast", "data" : "lah dee doo dah day"}).encode())
-
 
 def generate_random_coordinates():
     lat = round(random.uniform(-100, 100), 6)
