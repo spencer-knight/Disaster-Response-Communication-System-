@@ -40,11 +40,12 @@ def process_packet(data):
 
 def handle_aodv_rreq(packet):
     broadcast_id = packet.get("broadcast_id")
+    src = packet.get("src")
+    if src == CLIENT_ID:
+        return
     if broadcast_id in received_rreq:
         return
     received_rreq.add(broadcast_id)
-    
-    src = packet.get("src")
     dst = packet.get("dst")
     hop_count = packet.get("hop_count", 0)
     print(f"[RREQ] From {src} -> {dst}")
