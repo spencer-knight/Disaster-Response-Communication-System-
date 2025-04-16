@@ -92,11 +92,25 @@ def process_packet(conn, addr, data):
             if distance(gps, client["gps"]) < RANGE and not is_transmission_occluded(gps, client["gps"]):
               client["connection"].sendall(json.dumps(responsePacket).encode())
             
-  if packet.get("cmd") == "clientGPS":
+  elif packet.get("cmd") == "clientGPS":
     responsePacket["cmd"] = "serverGPS"
     with clients_lock:
       responsePacket["data"] = clients[addr]["gps"]
     conn.sendall(json.dumps(responsePacket).encode())
+   elif packet.get("cmd") in ["AODV_RREQ", "AODV_RREP", "AODV_DATA"]:
+      with clients_lock:
+         sender_gps = clients[addr]["gps"]
+         for addr_c, client in clients.items():
+             if addr_c != addr:
+                  target_gps = client["gps"]
+                  dist = distance(sender_gps, target_gps)
+                   if dist < RANGE:
+                      if not is_transmission_occluded(sender_gps, target_gps):
+                           client["connection"].sendall(json.dumps(packet).encode())
+                     else:
+                         print(f"AODV packet from {sender_gps} to {target_gps} blocked by mountain.")
+                   else:
+                       print(f"AODV packet from {sender_gps} to {target_gps} not sent due to distance ({dist:.2f} beyond range).")
 
 def generate_random_coordinates():
     x = random.randint(0, GRID_SIZE - 1)
