@@ -17,6 +17,7 @@ terrain_map = [[0 for point in range(GRID_SIZE)] for point in range(GRID_SIZE)]
 terrain_map_lock = threading.Lock()
 
 def print_map():
+    print("")
     for row in terrain_map:
         line = ""
         for point in row:
@@ -28,6 +29,7 @@ def print_map():
                 #display nodes on map in order of connection
                 line += str(point - 1)
         print(line)
+    print("")
 
 def create_line(gps1, gps2):
     points = []
@@ -62,7 +64,7 @@ def create_line(gps1, gps2):
 
 def is_transmission_occluded(gps1, gps2):
     for x, y in create_line(gps1, gps2):
-        if terrain_map[x][y] == 1:
+        if terrain_map[y][x] == 1:
             return True
     return False
 
@@ -85,9 +87,18 @@ def process_packet(conn, addr, data):
             gps = clients[addr]["gps"]
             for addr_c, client in clients.items():
                 if addr_c != addr:
-                    print(distance(gps, client["gps"]))
                     if distance(gps, client["gps"]) < RANGE and not is_transmission_occluded(gps, client["gps"]):
                         client["connection"].sendall(json.dumps(responsePacket).encode())
+
+    elif packet.get("cmd") == "setGPS":
+        with clients_lock:
+            with terrain_map_lock:
+                num = terrain_map[clients[addr]["gps"][1]][clients[addr]["gps"][0]]
+                terrain_map[clients[addr]["gps"][1]][clients[addr]["gps"][0]] = 0
+                clients[addr]["gps"]= (int(packet.get("x")), int(packet.get("y")))
+                terrain_map[clients[addr]["gps"][1]][clients[addr]["gps"][0]] = num
+                print_map()
+
 
     elif packet.get("cmd") == "clientGPS":
         responsePacket["cmd"] = "serverGPS"
@@ -118,7 +129,8 @@ def generate_random_coordinates():
 
 def handle_client(conn, addr):
     gps = generate_random_coordinates()
-    terrain_map[gps[0]][gps[1]] = 2 + len(clients)
+    with terrain_map_lock:
+      terrain_map[gps[1]][gps[0]] = 2 + len(clients)
     print_map()
     print(f"[NEW CONNECTION] {addr} connected. {gps}")
 
@@ -150,7 +162,7 @@ def main():
     for point in range(NUM_MOUNTAINS):
         x = random.randint(0, GRID_SIZE - 1)
         y = random.randint(0, GRID_SIZE - 1)
-        terrain_map[x][y] = 1
+        terrain_map[y][x] = 1
     print_map()
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

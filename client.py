@@ -194,8 +194,9 @@ def main():
         print("1. Broadcast a message (server mediated)")
         print("2. Send message via AODV routing")
         print("3. Get GPS location from server")
-        print("4. Quit")
-        choice = input("Enter your choice (1/2/3/4): ")
+        print("4. Set GPS location.")
+        print("5. Quit")
+        choice = input("Enter your choice (1/2/3/4/5): ")
 
         if choice == "1":
             msg = input("Enter message to broadcast: ")
@@ -209,6 +210,11 @@ def main():
             json_packet = json.dumps({"cmd": "clientGPS", "data": None})
             send_packet(json_packet)
         elif choice == "4":
+          x = input("Enter new x coordinate: ")
+          y = input("Enter new y coordinate: ")
+          json_packet = json.dumps({"cmd" : "setGPS", "x" : x, "y" : y})
+          send_packet(json_packet)
+        elif choice == "5":
             print("Exiting...")
             break
         else:
