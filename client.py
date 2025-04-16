@@ -10,7 +10,7 @@ PORT = 5000
 # AODV message types
 AODV_RREQ   = "AODV_RREQ"
 AODV_RREP   = "AODV_RREP"
-AODV_DATA   = "AODV_DATA"  
+AODV_DATA   = "AODV_DATA"
 
 CLIENT_ID = input("Enter client ID: ")
 
@@ -36,8 +36,7 @@ def process_packet(data):
     elif cmd == AODV_DATA:
         handle_aodv_data(packet)
     else:
-        print("Unknown packet received:")
-        print(packet)
+        print(f"[WARN] Unknown packet received: {packet}")
 
 def handle_aodv_rreq(packet):
     broadcast_id = packet.get("broadcast_id")
@@ -48,7 +47,7 @@ def handle_aodv_rreq(packet):
     src = packet.get("src")
     dst = packet.get("dst")
     hop_count = packet.get("hop_count", 0)
-    print(f"[AODV] Received RREQ from {src} for destination {dst} (hop count: {hop_count})")
+    print(f"[RREQ] From {src} -> {dst}")
     
     if CLIENT_ID == dst:
         rrep = {
@@ -60,7 +59,7 @@ def handle_aodv_rreq(packet):
             "path": [CLIENT_ID]  # Starting path with my own ID
         }
         send_packet(json.dumps(rrep))
-        print(f"[AODV] Sent RREP (I am destination) from {CLIENT_ID} to {src}")
+        print(f"[RREP] I am destination. Sending RREP to {src}")
     else:
         if dst in routing_table:
             route = routing_table[dst]
@@ -73,11 +72,11 @@ def handle_aodv_rreq(packet):
                 "path": [CLIENT_ID]
             }
             send_packet(json.dumps(rrep))
-            print(f"[AODV] Sent RREP (using routing table) from {CLIENT_ID} to {src}")
+            print(f"[RREP] Forwarding RREP for {dst} to {src}")
         else:
             packet["hop_count"] = hop_count + 1
             send_packet(json.dumps(packet))
-            print(f"[AODV] Rebroadcasted RREQ from {src} for destination {dst}")
+            print(f"[RREQ] Rebroadcasting RREQ for {dst}")
 
 def handle_aodv_rrep(packet):
     packet_id = f"{packet.get('src')}_{packet.get('dst')}_{packet.get('sequence')}"
@@ -97,8 +96,7 @@ def handle_aodv_rrep(packet):
         "sequence": sequence,
         "timestamp": time.time()
     }
-    print(f"[AODV] Received RREP: route to {src} for {dst} (hop count: {hop_count}), path: {path}")
-    print(f"[AODV] Updated routing table: {routing_table}")
+    print(f"[RREP] Received for route {src} → {dst} | Path: {path}")
     
     if dst != CLIENT_ID:
         if CLIENT_ID not in path:
@@ -106,9 +104,9 @@ def handle_aodv_rrep(packet):
             packet["path"] = path
             packet["hop_count"] = hop_count + 1
             send_packet(json.dumps(packet))
-            print(f"[AODV] Forwarding RREP for route to {src} towards {dst}. New path: {path}")
+            print(f"[RREP] Forwarding to {dst} | New Path: {path}")
         else:
-            print(f"[AODV] Not forwarding RREP; already in path: {path}")
+            print(f"[RREP] Dropped. Already in path: {path}")
 
 def handle_aodv_data(packet):
     packet_id = packet.get("id")
@@ -119,19 +117,19 @@ def handle_aodv_data(packet):
     dst = packet.get("dst")
     src = packet.get("src")
     path = packet.get("path", [])
-    print(f"[AODV DATA] Received data packet (ID: {packet_id}) from {src} destined for {dst}. Path so far: {path}")
+    print(f"[DATA] Received | From: {src} → To: {dst} | Path: {path}")
     
     if dst == CLIENT_ID or dst == "BROADCAST":
-        print(f"[AODV DATA] Message delivered from {src}: {packet.get('data')}")
+         print(f"[DELIVERED] Message from {src}: {packet.get('data')}")
     else:
         if CLIENT_ID not in path:
             packet["hop_count"] = packet.get("hop_count", 0) + 1
             path.append(CLIENT_ID)
             packet["path"] = path
             send_packet(json.dumps(packet))
-            print(f"[AODV] Forwarding data packet (ID: {packet_id}) from {src} towards {dst}. New path: {path}")
+            print(f"[FORWARD] Data packet ID: {packet_id} → {dst} | New Path: {path}")
         else:
-            print(f"[AODV] Not forwarding data packet (ID: {packet_id}); already in path.")
+            print(f"[SKIP] Packet ID: {packet_id} already contains this node.")
 
 def send_packet(packet_str):
     try:
@@ -158,16 +156,16 @@ def initiate_route_discovery(destination):
         "broadcast_id": str(uuid.uuid4()),
         "origin_seq": int(time.time())
     }
-    print(f"[AODV] Initiating route discovery for destination {destination}")
+    print(f"[INIT] Starting route discovery → {destination}")
     send_packet(json.dumps(rreq_packet))
 
 def send_aodv_data(dst, data_msg):
     if dst != "BROADCAST" and dst not in routing_table:
-        print(f"[AODV] No known route to {dst}. Initiating route discovery...")
+        print(f"[INFO] No route to {dst}. Route discovery initiated...")
         initiate_route_discovery(dst)
         time.sleep(2)
         if dst not in routing_table:
-            print(f"[AODV] Route discovery failed or pending. Message not sent.")
+            print(f"[WARN] Route to {dst} not found. Aborting message.")
             return
 
     packet = {
@@ -180,7 +178,7 @@ def send_aodv_data(dst, data_msg):
         "id": str(uuid.uuid4())
     }
     send_packet(json.dumps(packet))
-    print(f"[AODV] Sent AODV_DATA message (ID: {packet['id']}) to {dst}")
+    print(f"[SEND] AODV_DATA sent → {dst}")
 
 def main():
     global client_socket
