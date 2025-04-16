@@ -22,10 +22,11 @@ def print_map():
         for point in row:
             if point == 0:
                 line += "."
-            if point == 1:
+            elif point == 1:
                 line += "#"
-            if point == 3:
-                line += "$"
+            else:
+                #display nodes on map in order of connection
+                line += str(point - 1)
         print(line)
 
 def create_line(gps1, gps2):
@@ -62,7 +63,6 @@ def create_line(gps1, gps2):
 def is_transmission_occluded(gps1, gps2):
     for x, y in create_line(gps1, gps2):
         if terrain_map[x][y] == 1:
-            print("Occluded by mountain")
             return True
     return False
 
@@ -105,10 +105,11 @@ def process_packet(conn, addr, data):
                     if dist < RANGE:
                         if not is_transmission_occluded(sender_gps, target_gps):
                             client["connection"].sendall(json.dumps(packet).encode())
-                        else:
-                            print(f"AODV packet from {sender_gps} to {target_gps} blocked by mountain.")
-                    else:
-                        print(f"AODV packet from {sender_gps} to {target_gps} not sent due to distance ({dist:.2f} beyond range).")
+                            print(f"AODV packet from {sender_gps} to {target_gps} sent")
+                        #else:
+                            #print(f"AODV packet from {sender_gps} to {target_gps} blocked by mountain.")
+                    #else:
+                        #print(f"AODV packet from {sender_gps} to {target_gps} not sent due to distance ({dist:.2f} beyond range).")
 
 def generate_random_coordinates():
     x = random.randint(0, GRID_SIZE - 1)
@@ -117,7 +118,7 @@ def generate_random_coordinates():
 
 def handle_client(conn, addr):
     gps = generate_random_coordinates()
-    terrain_map[gps[0]][gps[1]] = 3
+    terrain_map[gps[0]][gps[1]] = 2 + len(clients)
     print_map()
     print(f"[NEW CONNECTION] {addr} connected. {gps}")
 
@@ -134,7 +135,7 @@ def handle_client(conn, addr):
             if not data:
                 break
             message = data.decode()
-            print(f"[{addr}] {message}")
+            #print(f"[{addr}] {message}")
 
             with clients_lock:
                 clients[addr]['messages'].append(message)
