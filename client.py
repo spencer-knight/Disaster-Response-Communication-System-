@@ -5,7 +5,7 @@ import time
 import uuid
 
 HOST = 'localhost'
-PORT = 5004
+PORT = 5000
 
 AODV_RREQ   = "AODV_RREQ"
 AODV_RREP   = "AODV_RREP"
