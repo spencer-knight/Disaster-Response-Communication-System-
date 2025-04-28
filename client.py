@@ -79,6 +79,8 @@ def handle_aodv_rrep(packet):
 
     src  = packet["src"]   
     dst  = packet["dst"] 
+    if src == CLIENT_ID:
+        return
     path = packet.get("path", [])
 
     if CLIENT_ID not in path:
@@ -99,7 +101,6 @@ def handle_aodv_rrep(packet):
 
     prev_hop = path[idx - 1]
     fwd = dict(packet)
-    fwd["dst"]       = prev_hop
     fwd["hop_count"] = packet.get("hop_count", 0) + 1
     send_packet(json.dumps(fwd))
     print(f"[RREP] Sending reply from {src} to {prev_hop}")
@@ -107,10 +108,6 @@ def handle_aodv_rrep(packet):
 
 def handle_aodv_data(packet):
     packet_id = packet.get("id")
-    if packet_id in forwarded_data_packets:
-        return
-    forwarded_data_packets.add(packet_id)
-    
     dst = packet.get("dst")
     src = packet.get("src")
     path = packet.get("path", [])
@@ -118,6 +115,9 @@ def handle_aodv_data(packet):
     if dst == CLIENT_ID or dst == "BROADCAST":
         print(f"[DELIVERED] Message from {src}: {packet.get('data')}")
     else:
+        if packet_id in forwarded_data_packets:
+            return
+        forwarded_data_packets.add(packet_id)
         if CLIENT_ID not in path:
             fwd = dict(packet)
             fwd["hop_count"] = packet.get("hop_count", 0) + 1

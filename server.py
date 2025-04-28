@@ -6,7 +6,7 @@ import math
 
 HOST = 'localhost'
 PORT = 5000
-RANGE = 12
+RANGE = 6
 GRID_SIZE = 15
 NUM_MOUNTAINS = 20
 
@@ -133,7 +133,9 @@ def process_packet(conn, addr, data):
                             if not is_transmission_occluded(sender_gps, target_gps):
                                 client["connection"].sendall(json.dumps(packet).encode())
                                 print(f"[{cmd}] packet from {clients[addr]["id"]} to {client["id"]} sent.")
-                                print(f"source: {packet.get("src")}, destination: {packet.get("dst")}, hops: {packet.get("hop_count")}")
+                                print(f"\t source: {packet.get("src")}, destination: {packet.get("dst")}, hops: {packet.get("hop_count")}")
+                                if str(packet.get("dst")) == str(client["id"]) and cmd == "DATA":
+                                    print("----------------------------")
                             #else:
                                 #print(f"AODV packet from {sender_gps} to {target_gps} blocked by mountain.")
                         #else:
