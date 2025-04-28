@@ -16,20 +16,26 @@ clients_lock = threading.Lock()
 terrain_map = [[0 for point in range(GRID_SIZE)] for point in range(GRID_SIZE)]
 terrain_map_lock = threading.Lock()
 
+print_lock = threading.Lock()
+
+client_count = 0
+client_count_lock = threading.Lock()
+
 def print_map():
-    print("")
-    for row in terrain_map:
-        line = ""
-        for point in row:
-            if point == 0:
-                line += "."
-            elif point == 1:
-                line += "#"
-            else:
-                #display nodes on map in order of connection
-                line += str(point - 1)
-        print(line)
-    print("")
+    with print_lock:
+      print("")
+      for row in terrain_map:
+          line = ""
+          for point in row:
+              if point == 0:
+                  line += "."
+              elif point == 1:
+                  line += "#"
+              else:
+                  #display nodes on map in order of connection
+                  line += str(point - 1)
+          print(line)
+      print("")
 
 def create_line(gps1, gps2):
     points = []
@@ -107,20 +113,22 @@ def process_packet(conn, addr, data):
         conn.sendall(json.dumps(responsePacket).encode())
 
     elif packet.get("cmd") in ["AODV_RREQ", "AODV_RREP", "AODV_DATA"]:
-        with clients_lock:
-            sender_gps = clients[addr]["gps"]
-            for addr_c, client in clients.items():
-                if addr_c != addr:
-                    target_gps = client["gps"]
-                    dist = distance(sender_gps, target_gps)
-                    if dist < RANGE:
-                        if not is_transmission_occluded(sender_gps, target_gps):
-                            client["connection"].sendall(json.dumps(packet).encode())
-                            print(f"AODV packet from {sender_gps} to {target_gps} sent")
-                        #else:
-                            #print(f"AODV packet from {sender_gps} to {target_gps} blocked by mountain.")
-                    #else:
-                        #print(f"AODV packet from {sender_gps} to {target_gps} not sent due to distance ({dist:.2f} beyond range).")
+      with clients_lock:
+          sender_gps = clients[addr]["gps"]
+          for addr_c, client in clients.items():
+              if addr_c != addr:
+                  target_gps = client["gps"]
+                  dist = distance(sender_gps, target_gps)
+                  if dist < RANGE:
+                      if not is_transmission_occluded(sender_gps, target_gps):
+                          client["connection"].sendall(json.dumps(packet).encode())
+                          with print_lock:
+                            #I'd like to change this to to say which type of packet
+                            print(f"AODV packet from {clients[addr]["id"]} to {client["id"]} sent")
+                      #else:
+                          #print(f"AODV packet from {sender_gps} to {target_gps} blocked by mountain.")
+                  #else:
+                      #print(f"AODV packet from {sender_gps} to {target_gps} not sent due to distance ({dist:.2f} beyond range).")
 
 def generate_random_coordinates():
     x = random.randint(0, GRID_SIZE - 1)
@@ -128,18 +136,23 @@ def generate_random_coordinates():
     return (x, y)
 
 def handle_client(conn, addr):
+    global client_count
     gps = generate_random_coordinates()
     with terrain_map_lock:
       terrain_map[gps[1]][gps[0]] = 2 + len(clients)
     print_map()
-    print(f"[NEW CONNECTION] {addr} connected. {gps}")
+    with print_lock:
+      print(f"[NEW CONNECTION] {addr} connected. {gps}")
 
     with clients_lock:
-        clients[addr] = {
-            'connection': conn,
-            'gps': gps,
-            'messages': []
-        }
+        with client_count_lock:
+          client_count += 1
+          clients[addr] = {
+              'connection': conn,
+              'gps': gps,
+              'id' : client_count,
+              'messages': []
+          }
 
     with conn:
         while True:
@@ -155,8 +168,9 @@ def handle_client(conn, addr):
             process_packet(conn, addr, data)
 
     with clients_lock:
+      with print_lock:
         print(f"[DISCONNECTED] {addr} removed.")
-        clients.pop(addr)
+      clients.pop(addr)
 
 def main():
     for point in range(NUM_MOUNTAINS):
@@ -168,13 +182,15 @@ def main():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((HOST, PORT))
     server_socket.listen()
-    print(f"[LISTENING] Server is listening on {HOST}:{PORT}")
+    with print_lock:
+      print(f"[LISTENING] Server is listening on {HOST}:{PORT}")
 
     while True:
         conn, addr = server_socket.accept()
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.start()
-        print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
+        with print_lock:
+          print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
 
 if __name__ == "__main__":
     main()
