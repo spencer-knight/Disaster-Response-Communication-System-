@@ -113,22 +113,30 @@ def process_packet(conn, addr, data):
         conn.sendall(json.dumps(responsePacket).encode())
 
     elif packet.get("cmd") in ["AODV_RREQ", "AODV_RREP", "AODV_DATA"]:
-      with clients_lock:
-          sender_gps = clients[addr]["gps"]
-          for addr_c, client in clients.items():
-              if addr_c != addr:
-                  target_gps = client["gps"]
-                  dist = distance(sender_gps, target_gps)
-                  if dist < RANGE:
-                      if not is_transmission_occluded(sender_gps, target_gps):
-                          client["connection"].sendall(json.dumps(packet).encode())
-                          with print_lock:
-                            #I'd like to change this to to say which type of packet
-                            print(f"AODV packet from {clients[addr]["id"]} to {client["id"]} sent")
-                      #else:
-                          #print(f"AODV packet from {sender_gps} to {target_gps} blocked by mountain.")
-                  #else:
-                      #print(f"AODV packet from {sender_gps} to {target_gps} not sent due to distance ({dist:.2f} beyond range).")
+        cmd = ""
+        match packet.get("cmd"):
+            case "AODV_RREQ":
+                cmd = "RREQ"
+            case "AODV_RREP":
+                cmd = "RREP"
+            case "AODV_DATA":
+                cmd = "DATA"
+        with clients_lock:
+            sender_gps = clients[addr]["gps"]
+            for addr_c, client in clients.items():
+                if addr_c != addr:
+                    target_gps = client["gps"]
+                    dist = distance(sender_gps, target_gps)
+                    if dist < RANGE:
+                        if not is_transmission_occluded(sender_gps, target_gps):
+                            client["connection"].sendall(json.dumps(packet).encode())
+                            with print_lock:
+                              #I'd like to change this to to say which type of packet
+                              print(f"[{cmd}] packet from {clients[addr]["id"]} to {client["id"]} sent")
+                        #else:
+                            #print(f"AODV packet from {sender_gps} to {target_gps} blocked by mountain.")
+                    #else:
+                        #print(f"AODV packet from {sender_gps} to {target_gps} not sent due to distance ({dist:.2f} beyond range).")
 
 def generate_random_coordinates():
     x = random.randint(0, GRID_SIZE - 1)
