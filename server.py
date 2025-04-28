@@ -34,6 +34,7 @@ def print_map():
               else:
                   #display nodes on map in order of connection
                   line += str(point - 1)
+              line += " "
           print(line)
       print("")
 
@@ -123,20 +124,20 @@ def process_packet(conn, addr, data):
                 cmd = "DATA"
         with clients_lock:
             sender_gps = clients[addr]["gps"]
-            for addr_c, client in clients.items():
-                if addr_c != addr:
-                    target_gps = client["gps"]
-                    dist = distance(sender_gps, target_gps)
-                    if dist < RANGE:
-                        if not is_transmission_occluded(sender_gps, target_gps):
-                            client["connection"].sendall(json.dumps(packet).encode())
-                            with print_lock:
-                              #I'd like to change this to to say which type of packet
-                              print(f"[{cmd}] packet from {clients[addr]["id"]} to {client["id"]} sent")
+            with print_lock:
+                print()
+                for addr_c, client in clients.items():
+                    if addr_c != addr:
+                        target_gps = client["gps"]
+                        if distance(sender_gps, target_gps) < RANGE:
+                            if not is_transmission_occluded(sender_gps, target_gps):
+                                client["connection"].sendall(json.dumps(packet).encode())
+                                print(f"[{cmd}] packet from {clients[addr]["id"]} to {client["id"]} sent.")
+                                print(f"source: {packet.get("src")}, destination: {packet.get("dst")}, hops: {packet.get("hop_count")}")
+                            #else:
+                                #print(f"AODV packet from {sender_gps} to {target_gps} blocked by mountain.")
                         #else:
-                            #print(f"AODV packet from {sender_gps} to {target_gps} blocked by mountain.")
-                    #else:
-                        #print(f"AODV packet from {sender_gps} to {target_gps} not sent due to distance ({dist:.2f} beyond range).")
+                            #print(f"AODV packet from {sender_gps} to {target_gps} not sent due to distance ({dist:.2f} beyond range).")
 
 def generate_random_coordinates():
     x = random.randint(0, GRID_SIZE - 1)
